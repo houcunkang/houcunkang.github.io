@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<search>
+  <entry>
+    <title>设置iFrame自适应高度，解决跨域问题。</title>
+    <url>/2020/05/29/%E8%AE%BE%E7%BD%AEiFrame%E8%87%AA%E9%80%82%E5%BA%94%E9%AB%98%E5%BA%A6%EF%BC%8C%E8%A7%A3%E5%86%B3%E8%B7%A8%E5%9F%9F%E9%97%AE%E9%A2%98/</url>
+    <content><![CDATA[<blockquote>
+<p>  最近工作上遇到这样一个问题，就是项目A的a页面要内置一个iframe src为项目B的b页面，需要加载完成之后去设置iframe的高度。一般同一个项目的话，直接获取内容的高度即可直接设置到iframe上。但现在涉及到跨域问题，a页面是获取不到b页面内容的高度的。</p>
+<p>  1、<br>  在项目A的WEB-ROOT根目录下新建一个代理页面c.jsp;保证项目启动后可以直接通过<a href="http://127.0.0.1:8080/A/c.jsp可以访问到；" target="_blank" rel="noopener">http://127.0.0.1:8080/A/c.jsp可以访问到；</a><br>  c.jsp:</p>
+<pre><code>var b_iframe = window.parent.parent.document.getElementById(&quot;myFrame&quot;);//a页面的iframe
+var hash_url = window.location.hash;
+if(hash_url.indexOf(&quot;#&quot;)&gt;=0){
+var hash_height = hash_url.split(&quot;#&quot;)[1].split(&quot;|&quot;)[0]+&quot;px&quot;;
+b_iframe.style.height = hash_height;   //给a页面的iframe设置高度</code></pre><p>}</p>
+<p>  2、<br>  a.jsp：<code>&lt;iframe id=&quot;myFrame&quot; name=&quot;myFrame&quot; src=&quot;B/b.jsp&quot; frameborder=&quot;0&quot; scrolling=&quot;no&quot; width=&quot;100%&quot;  &gt;&lt;/iframe&gt;</code></p>
+<p>  3、b.jsp：<code>&lt;iframe id=&quot;person&quot; name=&quot;person&quot; src=&quot;&quot; width=&quot;0&quot; height=&quot;0&quot; style=&quot;display:none;&quot; &gt;&lt;/iframe&gt;</code><br>  js代码：</p>
+<pre><code>(function autoHeight(){
+    var cHeight = Math.max（document.body.clientHeight,document.body.scrollHeight);
+    var c_iframe = document.getElementById(&quot;person&quot;); //替换成自己iframe的ID
+    c_iframe.src =  &quot;http://10.1.23.162:8080/A/c.jsp?a=&quot;+Math.random()+ &quot;#&quot; + cHeight ;  // 这里通过hash传递b.htm的宽高
+})();</code></pre></blockquote>
+<blockquote>
+<p>  虽然是可以设置父页面iframe的高度了，但是不同子页面请求代理页面时，却不一定能访问到代理页面；最后发现我b页面iframe的src是直接设为a.jsp的，我就把这里的链接放到js代码里去给frame设置src,这样每次都会请求到c页面的js方法了。</p>
+</blockquote>
+]]></content>
+      <categories>
+        <category>分享</category>
+      </categories>
+      <tags>
+        <tag>技术</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Oracle 拯救误删数据的你</title>
+    <url>/2020/03/31/Oracle%20%E6%8B%AF%E6%95%91%E8%AF%AF%E5%88%A0%E6%95%B0%E6%8D%AE%E7%9A%84%E4%BD%A0/</url>
+    <content><![CDATA[<blockquote>
+<p>前两天在测试功能的时候，去数据库不停的查询修改数据后，一个不留神就执行了一句没有where的delete语句。执行完心态爆炸了，虽然说删掉的表不是生产环境的，不是那么重要，但我意识到了类似这样的操作还是要谨慎，毕竟删库跑路是要负责的。赶紧百度了一下，看看有没有什么解救的方式，再根据自己的实际情况进行调整。  </p>
+<ol>
+<li>查询数据库系统时间，看和当前时间的差值，估算事故前的时间点   </li>
+</ol>
+</blockquote>
+<p><code>select  to_char(sysdate,&#39;yyyy-mm-dd hh24:mi:ss&#39;) from dual</code></p>
+<ol start="2">
+<li><p>根据估算时间查询这张表事故前在dual中的数据<br> <code>select  to_char(sysdate,&#39;yyyy-mm-dd hh24:mi:ss&#39;) from dual</code><br> <code>select * from COOP.MANA_ITEM_OPNN as of timestamp to_timestamp(&#39;2020-03-27 15:00:00&#39;,&#39;yyyy-mm-dd hh24:mi:ss&#39;)</code></p>
+</li>
+<li><p>关键一步：恢复数据</p>
+<p> <code>flashback table  COOP.MANA_ITEM_OPNN  to timestamp to_timestamp(&#39;2020-03-27 15:00:00&#39;,&#39;yyyy-mm-dd hh24:mi:ss&#39;)</code></p>
+<blockquote>
+<p>但如果表结构不支持闪回表（报错：因为未启用行移动功能 不能闪回表）<br>可以对表结构进行修改<code>alter table COOP.MANA_ITEM_OPNN enable row movement</code></p>
+</blockquote>
+</li>
+<li><p>个人建议不要轻易修改表结构，所以有方案二：从虚表查出事故前表中数据然后插入到表中就OK了。  </p>
+<blockquote>
+<p>INSERT INTO COOP.MANA_ITEM_OPNN(字段)<br> SELECT SYS_GUID(), 字段<br> FROM COOP.MANA_ITEM_OPNN as of timestamp   to_timestam(‘2020-03-27 15:00:00’,’yyyy-mm-dd hh24:mi:ss’)</p>
+</blockquote>
+</li>
+</ol>
+]]></content>
+      <categories>
+        <category>分享</category>
+      </categories>
+      <tags>
+        <tag>技术</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>阿里云服务器安装JAVA环境</title>
+    <url>/2020/03/16/%E9%98%BF%E9%87%8C%E4%BA%91%E6%9C%8D%E5%8A%A1%E5%99%A8%E5%AE%89%E8%A3%85JAVA%E7%8E%AF%E5%A2%83/</url>
+    <content><![CDATA[<p>#安装jdk</p>
+<p>1.官网下载jdk1.8下载地址：<a href="https://www.oracle.com/java/technologies/javase-jdk8-downloads.html" target="_blank" rel="noopener">https://www.oracle.com/java/technologies/javase-jdk8-downloads.html</a>  </p>
+<blockquote>
+<p>linux要下载tar.gz文件<br>百度云链接：<a href="https://pan.baidu.com/s/1BEkcF9z8TaLeqTdhmldS2A" target="_blank" rel="noopener">https://pan.baidu.com/s/1BEkcF9z8TaLeqTdhmldS2A</a><br>提取码：pzb4 </p>
+</blockquote>
+<p>2.下载好后用Xftp将下载的jdk文件上传到/home路径下</p>
+<blockquote>
+<ul>
+<li>解压tar.gz文件<br>tar -xzf /home/jdk-8u241-linux-x64.tar.gz（文件路径） -C /usr/java/jdk（解压指定路径）  </li>
+<li>配置环境变量 vi/etc/profile在文件末尾加上<br>#set java environment<br>export JAVA_HOME=/usr/java/jdk/jdk1.8.0_241<br>export CLASSPATH=$JAVA_HOME/lib/tools.jar:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib<br>export PATH=$JAVA_HOME/bin:$PATH  </li>
+</ul>
+</blockquote>
+<p>3.官网下载tomcat：<a href="https://archive.apache.org/dist/tomcat/tomcat-9/v9.0.4/bin/" title="点击链接" target="_blank" rel="noopener">https://archive.apache.org/dist/tomcat/tomcat-9/v9.0.4/bin/</a><br>百度云链接：<a href="https://pan.baidu.com/s/1UyLbh2gh2TjetVUeNVtOaA" target="_blank" rel="noopener">https://pan.baidu.com/s/1UyLbh2gh2TjetVUeNVtOaA</a> 提取码：y9j0</p>
+<blockquote>
+<ul>
+<li>解压tomcat<br>tar -xzf /home/apache-tomcat-9.0.4.tar.gz -C /usr/java/tomcat  </li>
+<li>cd /usr/java/tomcat/apache-tomcat-9.0.4/bin 进入bin目录启动tomcat<br>这样就是启动成功了。  </li>
+<li>PS：一般都会出点问题的，我刚开始的时候Tomcat就启动失败了。非常无解的是一开始启动也不报错，就以为是启动成功了，然后ip:8080的时候发现访问不了，就开始排错，看是不是端口被占用了，也尝试切换到9090端口，启动后任然不能访问。最后再启动就报错啦<br><code>Tomcat9 Error: Could not find or load main class org.apache.catalina.startup.Bootstrap</code><br>百度了一下，因为下载的tomcat9包不对，资源里缺乏jar包，只需要按照我上面提供的链接下载即可。</li>
+</ul>
+</blockquote>
+<p>第一次写关于这方面的文章，内容比较简单，但也都是本人动手实践过的，希望对大家有所帮助。</p>
+]]></content>
+      <categories>
+        <category>教程</category>
+      </categories>
+      <tags>
+        <tag>技术</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>没想好的标题</title>
+    <url>/2020/03/10/%E6%B2%A1%E6%83%B3%E5%A5%BD%E7%9A%84%E6%A0%87%E9%A2%98/</url>
+    <content><![CDATA[<div id="hexo-blog-encrypt" data-wpm="抱歉, 这个密码看着不太对, 请再试试." data-whm="抱歉, 这个文章不能被校验, 不过您还是能看看解密后的内容."><div class="hbe-input-container"><input type="password" id="hbePass" placeholder="您好, 这里需要密码." /><label>您好, 这里需要密码.</label><div class="bottom-line"></div></div><script id="hbeData" type="hbeData" data-hmacdigest="6bb977a12424ae473fd2f7075423686b99fae2a54740e93284e67435a9fbd887">6c16053ba100801e4d1a7c02d8e2dd5554ed92d9397abc86951ff46e00847f3e2810912517a2d7120e3053cead8175f9ac1ee43d1f8ac364e8e2c1dd5908d8c0679afd37a28af9609efbd388df53c6762dfd20b1fb12993d9260e796afe74fdee0c19eeb1ffa9d6663cab76008b17c28d4b6b22f911be44c4cd9c8e973f65988080facc22131733bb1043275e371d88f24c57cafcfb04e15a5a15df26d501201fcfb2f018c260827a9bd89c7934b0143c8f224f800b88d4fc7e96d13c3bbb6a1588467f11a57d7f3c2b6ec6a59381c909eadb34c3f9cbd49c845d515646bb5f36133186dd56dfe0b2017557ec70754e92597d9ba6fe5ab01735ed7d31136d159c31765cddfe3daa5356a4c8869ae9df4da4905efb4ef40cfa9c4fb47ed117cb3a31263531d73613e51c05c50b862a37fefa405988eb3e41b7b650527ccf50ec9835404592646699cc6615aa627fa2ed51ddf65196a393ef8b2fa21abe2af30bbb79d1c745e4ad3920681fb476e05f9b610f0ca6e47b17cbace9830fcda68e5c7f2cdcb59c49d82a704d3f73d0d049445a757e4b368cb66c92e611298349a93a6ca7b02a7d7d7d5bc5006ed5b0d6466e8897fe21328562d0457cfbf493d73dfeb6e4aa562c1a3fbf49cfbc19b06a01b3c282eb694f2c6bb1972a6eb7ad517f5ce73e9d7627c94ed367cf194ddd9756a8ac25492117a7c4a47a3bb92a928d05dcfb534c6122d8d71d94e19e5a3b3f4c03ebc1caa2451a89714c04ce6b3b452d3525b9a7e25505eae1d4de8cf1a8b49c929a541b5afd4bc84ce01d740a6dafcb08365f44be236d8614d91aa1e5817a8085f44731d06e387e0c4a055e714c98b51803fcd54f2a144143ddda3b298146030a74f3fd676c4bd77195cf3886d1a012d74d1752956ac906736673df5183ed72d4ec15563270d6c6dfa7389a206964cb4ff8eda1cb261d54e8b1ea2a38940d04b3ad9dec414f064c7d89136e379e35060cc1b78848696c8f57fb014f6a3461a9c769c5722a056d70affdbc0a02d429b3e0e08ca795d52305c66f920d89ab8980c03b729b55d691188ee7e9c9b631c7fcb36cefea17838df36c27f43f42ebdc4f7f560be2f2bdc7331a3b2fe17dfa743add5ca1597879bccca96ecd1674d004458773b0adb3e96307ae8b9c9fcec5ea74af83b96914ce3ab7c39dab20ea3453dbb195127bda02c6e9304f153c2eb32fcd46fc880354d84ca0cbb1de0a23835d129f48d7c1aacb92886c13a169c4b46c40b514db74e5b889f0d9bd68f4f548cc58ad62c7c4ce2792b506a2cd6f3e01ae792b06e2336c0f6e7f3a2c99884b460d5e21d636f5514285bcfa0760eb0cf6cb477ef843d5ff99d56fbd46193e20079d38f8a2102cf92838427cd20ebc63ab6fcb7ea2fb072bfe0a1280077ca29630419b3a724ba6499fddd2a53e5ae51710d0cb7c92d65ce5ca718205ddf1818f9e9c74d1a18165e109f4e26b4164fa79cc79bda7adf737ea070785d92df1ddc388428b5a8522a29bf0e8c45ea2a075e20a19a4e9f31b8a760b9514ae80e45063ea01f6ff77229d1dd192fdcd08e7f44c50409b0b76e6801a1c5b7f938e4a15b9eeb553beb3aaba7bd7fbc37abbb0e3cf8f541258af0028de23f772ec76a2280dd6c30bb2798753ecce4dd148137fb46f27701882089a4a9cdd31ccb0fec5939aeb4b5329ae649ec65b15c76fa1c4a8a579f34ecf869cd9bb1bee0e5ed8d73489b83a5edaa6ed432df937637b72e36493c959d5a6e1d4551bb40bc72ae96b2ab396d124554b0a6d9f3b75a33ece20811c5de3cc8c731c723134b9959ba2fc0983929bb501067082d6d0932622665c65f8e3934e836b67cc70a487e33859903bde654dab38130508d1ef45a651f6be0ef174a7f223377d8cd1bfdf7ad78e4309f75ff27962094a04b4d09e240629db9b2090f924e509cbc434e84c457e9103d5edcc538dda52d97f68b9f192476be9c6f734f62f16adfd5f446f9e7d3bea57dcb3ad2ed9b101caa228cbf5fdb785a9c26e4f77382098ded028e2281fb4bf7261f569868435d6eef13376453dfe45f0547ff0fc11cf90b5a151f18c9e7a974eb4818ef2b43677c1c12a40e6ef49e6fcf7a7232798edc9f09902176e8198dbed88610274beb4879c9304932aee3df00b67886be2b5c3def92559d2bf6a80f7243058a339970f008630b306c0d244bff8a902d1d8e40de91ae958b57997bfc8997fd80510beb4d39b2508a7dafedca233f83f8008663311e593555f89c5bacde20d6c73688b3516fec86221d35cffa7483b0990b9067e59a1c3617f827cf9c657330d03c2e113dcabfe67484171c7c7f64ab329ccaf8fdbc746e8a90587a108055731d7529f9bf66e98cb53354d6ab217db519618a6c0c682fc00ca77ff4e46bddb081b516e778f6176068a55d79c96617b7fb5749ad9f</script></div><script src="/lib/blog-encrypt.js"></script><link href="/css/blog-encrypt.css" rel="stylesheet" type="text/css">]]></content>
+      <tags>
+        <tag>工作</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>贰零贰零</title>
+    <url>/2020/01/09/%E8%B4%B0%E9%9B%B6%E8%B4%B0%E9%9B%B6/</url>
+    <content><![CDATA[<div id="hexo-blog-encrypt" data-wpm="抱歉, 这个密码看着不太对, 请再试试." data-whm="抱歉, 这个文章不能被校验, 不过您还是能看看解密后的内容."><div class="hbe-input-container"><input type="password" id="hbePass" placeholder="您好, 这里需要密码." /><label>您好, 这里需要密码.</label><div class="bottom-line"></div></div><script id="hbeData" type="hbeData" data-hmacdigest="20f011d9233d361d24a513d18b1865def194c97cfbdf0adb7b6554b5d986b869">8ec51b798ead4a8c5378599f1a7a9474ec01d612d7adeb93213b4d2b8f851df2d270de09a6ecb1ffa81077f46b1fb37a9c01821123bef4d44dbe51afb19fb057790035d13a7520cd7828fae46e1c0e7219508c98452a7558a24951deb74692cb0f70c9b45e94f213b73835b80284a64bee3ec8201aecdee9f6a2cec1f18119a1620b321c3c10dd046c00211b3e335fab978e68b3b5744db8c709be2b080d23f4412384654b9d860dcff5b8bd38366e924766e44192686ab242b21e1c6cf51f0d1e7b2221b16dfd9eaf207057b4506309ebf428f28b7459b59e899cb71efe514f09595cf8603d82dd42c74a35a52322622e47088db27bfc2471ea1bfe1bec8d1f6a5e4377b80c8d918352f98fc1b2689f84cdab26cc81a6d67907a73eaf1c95ac2e2eb77c69ecb9f67e4ad481cc3436648cdcf613bf462c9f49334e550b5bae5a2e6077d9995b1e2588fe637684f92a30e70918ea27dbd48b456d1a43567d159e8d4f1ca73157d8dd79b079c021763604fb3c74423067895d18158af0b4d19b0faf7214eb8739ae73db5ffa5138255c3a7977bfad69b8f96146ed321c90cef31ab8c6e39907458ce02ac6816fe090a7fc4888443d422b5818d324ac4fd86f14054f8f104b5f3ce2aa718814b9d351fe680497500ea31301fb0bffae9476a057b39e0aed302086441703e3b2b099cd666958be29beee704ddab466e4d4fff0cc39f96f87d8b4da73e1daadd7bad6868cde9f95489b492820eeeb4921acfb5b0c58f5880d36f60f05b3c00940d292d8ba3545945c65cae323170791da7e4bd93f48571d040f1e3423443fa036a09c25b0cd94e325a6e7e3cbb4547460443dbbc733eb0b4ec8dadec1d4a141787afedd62842f051f824d69ac811a6741b0874778eb176839dcee5e5ef3c3cf5dd3480c006ac30580b176264e096e98f86f8a1d384439597d28567f4a82a1f54e52f6fb0283</script></div><script src="/lib/blog-encrypt.js"></script><link href="/css/blog-encrypt.css" rel="stylesheet" type="text/css">]]></content>
+      <tags>
+        <tag>生活</tag>
+      </tags>
+  </entry>
+</search>
